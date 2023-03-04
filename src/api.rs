@@ -50,6 +50,18 @@ impl ChatGPTSession {
         self.chatlog = Vec::new();
     }
 
+    // Get the chat log
+    pub fn get_chatlog(&self) -> &Vec<ChatLogEntry> {
+        &self.chatlog
+    }
+
+    // Save chat log to file with given name
+    pub fn save_chatlog(&self, path: &str) -> std::io::Result<()> {
+        let chat_log_json = serde_json::to_string_pretty(&self.chatlog)?;
+        std::fs::write(path, chat_log_json)?;
+        Ok(())
+    }
+
     // Send a message to the ChatGPT API
     pub fn send_message(
         &mut self,
