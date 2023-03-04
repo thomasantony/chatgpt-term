@@ -160,9 +160,16 @@ impl ChatGPTClient {
         &self,
         messages: impl Iterator<Item = Message>,
     ) -> Result<ChatLogEntry, Box<dyn std::error::Error>> {
+        let initial_prompt = r#"You are Assistant, a very enthusiastic chatbot. You are chatting with a user.
+            If you don't know the answer to something, say \"I don't know\".\n\n"#;
+
+        let mut messages: Vec<_> = messages.collect();
+        // Prefix first message with initial prompt
+        messages[0].content = format!("{}{}", initial_prompt, messages[0].content);
+
         let request: ChatGPTRequest = ChatGPTRequest {
             model: self.model.clone(),
-            messages: messages.collect(),
+            messages,
         };
 
         let mut headers = HeaderMap::new();
@@ -203,11 +210,12 @@ impl ChatGPTClient {
             "user",
         );
         let entry = ChatLogEntry {
-            message: prompt.content,
+            message: prompt.content.replace(initial_prompt, ""),
             response: answer.content,
             num_tokens_message: prompt_tokens as u32,
             num_tokens_response: answer_tokens as u32,
         };
+
         Ok(entry)
     }
 }
