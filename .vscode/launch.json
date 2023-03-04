@@ -1,0 +1,59 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in library 'chatgpt-term'",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=chatgpt-term"],
+        "filter": {
+          "name": "chatgpt-term",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'chatgpt-term'",
+      "cargo": {
+        "args": ["build", "--bin=chatgpt-term", "--package=chatgpt-term"],
+        "filter": {
+          "name": "chatgpt-term",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "env": {
+        "OPENAI_API_KEY": "foo"
+      },
+      "cwd": "${workspaceFolder}",
+      "stopOnEntry": false
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'chatgpt-term'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--bin=chatgpt-term",
+          "--package=chatgpt-term"
+        ],
+        "filter": {
+          "name": "chatgpt-term",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
