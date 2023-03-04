@@ -33,6 +33,7 @@ impl<'a> Default for ChatEntryBox<'a> {
     fn default() -> Self {
         let mut textarea = TextArea::default();
         textarea.set_block(Block::default().borders(Borders::ALL).title("Input"));
+        textarea.set_cursor_line_style(Style::default().fg(Color::Red));
         Self { textarea }
     }
 }
@@ -115,13 +116,24 @@ impl<'a> ChatTermApp<'a> {
     }
 
     // Add a new entry to the message area
-    fn add_chatlog_entry(message_area: &mut TextArea, entry: &ChatLogEntry) {
-        // Add both message and response to message_area
-        // using the insert_str method in the format "You: message"
-        message_area.insert_str(&format!("You: {}", entry.message));
-        message_area.insert_newline();
-        message_area.insert_str(&format!("Bot: {}", entry.response));
-        message_area.insert_newline();
+    fn add_line_wrapped(text_area: &mut TextArea, line: &str, width: usize) {
+        let wrap_width = if width > 6 { width - 5 } else { width };
+        let wrapped_lines = textwrap::wrap(line, wrap_width);
+        for (ctr, line) in wrapped_lines.into_iter().enumerate() {
+            if ctr > 0 {
+                // Prefix with five spaces to indicate a continuation of the previous line
+                text_area.insert_str("     ");
+            }
+            text_area.insert_str(line);
+            text_area.insert_newline();
+        }
+    }
+    fn add_chatlog_entry(message_area: &mut TextArea, entry: &ChatLogEntry, width: usize) {
+        // Add both message and response to message_area after wrapping them to width
+        let message = format!("You: {}", entry.message);
+        ChatTermApp::add_line_wrapped(message_area, &message, width);
+        let message = format!("Bot: {}", entry.response);
+        ChatTermApp::add_line_wrapped(message_area, &message, width);
     }
 
     // Clear the message area and add all the entries in the chatlog
@@ -133,10 +145,7 @@ impl<'a> ChatTermApp<'a> {
         message_area.set_cursor_style(Style::default().fg(Color::Black));
 
         for entry in chatlog.iter() {
-            message_area.insert_str(&format!("You: {}", entry.message));
-            message_area.insert_newline();
-            message_area.insert_str(&format!("Bot: {}", entry.response));
-            message_area.insert_newline();
+            ChatTermApp::add_chatlog_entry(&mut message_area, entry, 80);
         }
         message_area
     }
@@ -257,12 +266,16 @@ pub fn run(client: ChatGPTClient) -> Result<(), Box<dyn std::error::Error>> {
     // Create a new session
     let session = client.new_session(2000).with_log_file("chatlog.json")?;
 
+    // TODO: Separate threads for input events, UI updates, and chatbot responses
     let mut app = ChatTermApp::new(session)?;
     loop {
         if let Some(ui_event) = app.update_ui() {
             match ui_event {
                 UiEvent::SendMessage(message_str) => match app.session.send_message(&message_str) {
-                    Ok(entry) => ChatTermApp::add_chatlog_entry(&mut app.message_area, &entry),
+                    Ok(entry) => {
+                        let width = app.term.get_frame().size().width as usize - 4;
+                        ChatTermApp::add_chatlog_entry(&mut app.message_area, &entry, width);
+                    }
                     Err(err) => {
                         app.input.set_error(Some(format!("Error: {:?}", err)));
                     }
