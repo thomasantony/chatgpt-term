@@ -2,6 +2,9 @@
 
 This is a completely terminal based ChatGPT client that uses OpenAI's [ChatGPT API](https://platform.openai.com/docs/guides/chat). You can provide your own API key and recreate the ChatGPT experience in the terminal.
 
+![output](https://user-images.githubusercontent.com/1804570/222940432-f09e7519-3f68-44fc-9838-54ec0bf6f036.gif)
+
+
 ## Usage
 
 ```
