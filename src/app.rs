@@ -261,10 +261,18 @@ impl<'a> Drop for ChatTermApp<'a> {
     }
 }
 
-pub fn run(client: ChatGPTClient) -> Result<(), Box<dyn std::error::Error>> {
-    // Load chat log from chatlog.json file and deserialize it
-    // Create a new session
-    let session = client.new_session(2000).with_log_file("chatlog.json")?;
+pub fn run(
+    client: ChatGPTClient,
+    session_file: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Load session from file if given and pass it to new_session
+    let chatlog = if let Some(filename) = session_file {
+        ChatGPTSession::load_chatlog(&filename)?
+    } else {
+        Vec::new()
+    };
+
+    let session = client.new_session(chatlog, 2000);
 
     // TODO: Separate threads for input events, UI updates, and chatbot responses
     let mut app = ChatTermApp::new(session)?;

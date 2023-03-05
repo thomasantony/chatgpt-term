@@ -6,6 +6,8 @@ use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 
+use crate::ChatTermConfig;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ChatLogEntry {
     pub message: String,
@@ -47,20 +49,19 @@ impl ChatGPTSession {
         )
     }
     /// Initialize a new ChatGPTSession with a ChatGPTClient and max_tokens
-    pub fn new(client: ChatGPTClient, max_tokens: u32) -> Self {
+    pub fn new(client: ChatGPTClient, chatlog: Vec<ChatLogEntry>, max_tokens: u32) -> Self {
         Self {
             name: Self::generate_session_name(),
-            chatlog: Vec::new(),
+            chatlog,
             max_tokens,
             client,
         }
     }
 
     /// Add data freom log file
-    pub fn with_log_file(mut self, path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load_chatlog(path: &str) -> Result<Vec<ChatLogEntry>, Box<dyn std::error::Error>> {
         let entries: Vec<ChatLogEntry> = serde_json::from_str(&std::fs::read_to_string(path)?)?;
-        self.chatlog = entries;
-        Ok(self)
+        Ok(entries)
     }
 
     /// Reset the chatlog and session name
@@ -130,17 +131,6 @@ impl ChatGPTSession {
     }
 }
 
-// Struct representing a ChatGPT client with an auth token
-// Uses a type state marker to represent the state of the client
-pub struct ChatGPTClient {
-    // ChatGPT auth token
-    pub auth_token: String,
-    // reqwest client
-    pub client: Client,
-    // model name
-    pub model: String,
-}
-
 // A type representing a ChatGPT Message
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Message {
@@ -157,6 +147,14 @@ impl Message {
     }
 }
 
+// Struct representing a ChatGPT client with an auth token
+// Uses a type state marker to represent the state of the client
+pub struct ChatGPTClient {
+    pub config: ChatTermConfig,
+    // reqwest client
+    pub client: Client,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 struct ChatGPTRequest {
     #[serde(rename = "model")]
@@ -167,17 +165,16 @@ struct ChatGPTRequest {
 
 impl ChatGPTClient {
     // Construct new client from auth token, initializes reqwest client
-    pub fn new(auth_token: &str, model: &str) -> Self {
+    pub fn new(config: ChatTermConfig) -> Self {
         Self {
-            auth_token: String::from(auth_token),
+            config: config,
             client: Client::new(),
-            model: String::from(model),
         }
     }
     // Create new session consuming the client
     // FIXME: Change this later to use a reference to a client
-    pub fn new_session(self, max_tokens: u32) -> ChatGPTSession {
-        ChatGPTSession::new(self, max_tokens)
+    pub fn new_session(self, chatlog: Vec<ChatLogEntry>, max_tokens: u32) -> ChatGPTSession {
+        ChatGPTSession::new(self, chatlog, max_tokens)
     }
     // Send a request to the ChatGPT API
     // Example API request payload:
@@ -194,14 +191,16 @@ impl ChatGPTClient {
         messages[0].content = format!("{}{}", initial_prompt, messages[0].content);
 
         let request: ChatGPTRequest = ChatGPTRequest {
-            model: self.model.clone(),
+            model: self.config.openai_model.clone(),
             messages,
         };
 
         let mut headers = HeaderMap::new();
         headers.insert(
             AUTHORIZATION,
-            format!("Bearer {}", self.auth_token).parse().unwrap(),
+            format!("Bearer {}", self.config.openai_api_key)
+                .parse()
+                .unwrap(),
         );
 
         headers.insert(CONTENT_TYPE, "application/json".parse().unwrap());
