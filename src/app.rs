@@ -280,13 +280,14 @@ pub fn run(client: ChatGPTClient) -> Result<(), Box<dyn std::error::Error>> {
                         app.input.set_error(Some(format!("Error: {:?}", err)));
                     }
                 },
-                UiEvent::SaveSession => {
-                    if let Err(err) = app.session.save_chatlog("chatlog.json") {
-                        app.error_message = Some(format!("Error: {:?}", err).into());
-                    } else {
-                        app.error_message = Some("Saved session to chatlog.json".into());
+                UiEvent::SaveSession => match app.session.save_chatlog() {
+                    Ok(filename) => {
+                        app.error_message = Some(format!("Saved session to {}", filename).into());
                     }
-                }
+                    Err(err) => {
+                        app.error_message = Some(format!("Error: {:?}", err).into());
+                    }
+                },
                 UiEvent::Quit => break,
             }
         }

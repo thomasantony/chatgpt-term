@@ -1,17 +1,11 @@
 use core::str;
 use std::collections::VecDeque;
 
+use chrono::{Datelike, Local, Timelike};
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 
-// Struct holds information from a chatgpt session including prior messages and responses
-pub struct ChatGPTSession {
-    // chat log is a vector of tuples of the form (message, response, num_tokens_message, num_tokens_response)
-    pub chatlog: Vec<ChatLogEntry>,
-    pub max_tokens: u32,
-    pub client: ChatGPTClient,
-}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ChatLogEntry {
     pub message: String,
@@ -29,25 +23,50 @@ impl ChatLogEntry {
         }
     }
 }
+// Struct holds information from a chatgpt session including prior messages and responses
+pub struct ChatGPTSession {
+    name: String,
+    // chat log is a vector of tuples of the form (message, response, num_tokens_message, num_tokens_response)
+    chatlog: Vec<ChatLogEntry>,
+    max_tokens: u32,
+    client: ChatGPTClient,
+}
+
 impl ChatGPTSession {
-    // Initialize a new ChatGPTSession with a ChatGPTClient and max_tokens
+    /// Create session name from current time
+    fn generate_session_name() -> String {
+        let now = Local::now(); // e.g. `2014-11-28T12:45:59.324310806Z`
+        format!(
+            "chatlog_{}{}{}{}{}{}",
+            now.year(),
+            now.month(),
+            now.day(),
+            now.hour(),
+            now.minute(),
+            now.second()
+        )
+    }
+    /// Initialize a new ChatGPTSession with a ChatGPTClient and max_tokens
     pub fn new(client: ChatGPTClient, max_tokens: u32) -> Self {
         Self {
+            name: Self::generate_session_name(),
             chatlog: Vec::new(),
             max_tokens,
             client,
         }
     }
-    // Add data freom log file
+
+    /// Add data freom log file
     pub fn with_log_file(mut self, path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let entries: Vec<ChatLogEntry> = serde_json::from_str(&std::fs::read_to_string(path)?)?;
         self.chatlog = entries;
         Ok(self)
     }
 
-    // Reset the chatlog
+    /// Reset the chatlog and session name
     pub fn reset(&mut self) {
         self.chatlog = Vec::new();
+        self.name = Self::generate_session_name();
     }
 
     // Get the chat log
@@ -55,8 +74,15 @@ impl ChatGPTSession {
         &self.chatlog
     }
 
+    // save chatlog to json file based on session name
+    pub fn save_chatlog(&self) -> std::io::Result<String> {
+        let filename = format!("{}.json", self.name);
+        self.save_chatlog_to_path(&filename)?;
+        Ok(filename)
+    }
+
     // Save chat log to file with given name
-    pub fn save_chatlog(&self, path: &str) -> std::io::Result<()> {
+    pub fn save_chatlog_to_path(&self, path: &str) -> std::io::Result<()> {
         let chat_log_json = serde_json::to_string_pretty(&self.chatlog)?;
         std::fs::write(path, chat_log_json)?;
         Ok(())
